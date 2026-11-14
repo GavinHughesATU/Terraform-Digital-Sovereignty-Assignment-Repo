@@ -1,0 +1,7 @@
+import "tfconfig/v2" as tfconfig
+
+main = rule {
+  all tfconfig.providers as _, provider {
+    provider.name is "aws"
+  }
+}
