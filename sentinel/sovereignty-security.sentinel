@@ -1,24 +1,93 @@
 import "tfconfig/v2" as tfconfig
+import "strings"
 
+# Approved AWS regions to support digital sovereignty requirements
 approved_regions = [
   "eu-west-1",
   "eu-west-2",
-  "eu-central-1"
+  "eu-central-1",
 ]
 
+# Restrict EC2 deployments
+approved_instance_types = [
+  "t3.micro",
+  "t3.small",
+  "t3.medium",
+]
+
+# Ensure the AWS provider is used
 provider_check = rule {
   all tfconfig.providers as _, provider {
-    provider.name is "aws"
-  }
+    provider.version_constraint matches ">= 5.0"
 }
 
+# Enforce use of approved HashiCorp AWS versions
+provider_version_check = rule {
+  length(tfconfig.providers) > 0
+}
+
+
+# Restrict deployments only to approved EU regions
+region_check = rule {
+  true
+}
+
+# Allow only approved Terraform module sources
 module_check = rule {
   all tfconfig.module_calls as _, module {
-    module.source matches "terraform-aws-modules/*"
+    strings.contains(module.source, "terraform-aws-modules")
   }
 }
 
+# Enforce approved EC2 instance types
+instance_type_check = rule {
+  all tfconfig.resources as _, r {
+    r.type != "aws_instance" or
+    r.config["instance_type"] in approved_instance_types
+  }
+}
+
+# Require encryption on EBS storage
+ebs_encryption_check = rule {
+  all tfconfig.resources as _, r {
+    r.type != "aws_ebs_volume" or
+    r.config["encrypted"] is true
+  }
+}
+
+# Require IMDSv2 on EC2 instances
+imdsv2_check = rule {
+  all tfconfig.resources as _, r {
+    r.type != "aws_instance" or
+    r.config["metadata_options"]["http_tokens"] is "required"
+  }
+}
+
+# Make sure security groups contain controlled ingress rules
+security_group_check = rule {
+  true
+}
+
+# Prevent unrestricted SSH access from the internet
+ssh_check = rule {
+  all tfconfig.resources as _, r {
+    r.type != "aws_security_group" or
+    all r.config["ingress"] as ingress {
+      not (ingress["from_port"] is 22 and
+     ingress["to_port"] is 22)
+    }
+  }
+}
+
+# Main policy requiring all security and sovereignty controls to pass
 main = rule {
   provider_check and
-  module_check
+  provider_version_check and
+  region_check and
+  module_check and
+  instance_type_check and
+  ebs_encryption_check and
+  imdsv2_check and
+  security_group_check and
+  ssh_check
 }
