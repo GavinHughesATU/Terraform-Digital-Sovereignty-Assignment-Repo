@@ -12,6 +12,12 @@ provider_check = rule {
   }
 }
 
+region_check = rule {
+  all tfconfig.providers as _, provider {
+    provider.config["region"] in approved_regions
+  }
+}
+
 module_check = rule {
   all tfconfig.module_calls as _, module {
     module.source matches "terraform-aws-modules/*"
