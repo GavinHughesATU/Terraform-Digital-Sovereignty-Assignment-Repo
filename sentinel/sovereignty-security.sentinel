@@ -20,6 +20,7 @@ provider_check = rule {
   all tfconfig.providers as _, provider {
     provider.version_constraint matches ">= 5.0"
 }
+}
 
 # Enforce use of approved HashiCorp AWS versions
 provider_version_check = rule {
@@ -29,7 +30,9 @@ provider_version_check = rule {
 
 # Restrict deployments only to approved EU regions
 region_check = rule {
-  true
+  all tfconfig.providers as _, provider {
+    provider.config["region"] in approved_regions
+  }
 }
 
 # Allow only approved Terraform module sources
@@ -65,7 +68,9 @@ imdsv2_check = rule {
 
 # Make sure security groups contain controlled ingress rules
 security_group_check = rule {
-  true
+  all tfconfig.resources as _, r {
+    r.type != "aws_security_group"
+  }
 }
 
 # Prevent unrestricted SSH access from the internet
