@@ -1,0 +1,24 @@
+import "tfconfig/v2" as tfconfig
+
+approved_regions = [
+  "eu-west-1",
+  "eu-west-2",
+  "eu-central-1"
+]
+
+provider_check = rule {
+  all tfconfig.providers as _, provider {
+    provider.name is "aws"
+  }
+}
+
+module_check = rule {
+  all tfconfig.module_calls as _, module {
+    module.source matches "terraform-aws-modules/*"
+  }
+}
+
+main = rule {
+  provider_check and
+  module_check
+}
